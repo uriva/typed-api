@@ -41,7 +41,7 @@ export const PortalHandler = async <
     token: string;
     payload: EPs[Key]["input"];
   },
-) => {
+): Promise<EPs[Key]["output"]> => {
   const activeUser = await verifyToken(token);
   const ep = endpoints[endpoint];
   if (!ep) throw new Error("No endpoint found");
