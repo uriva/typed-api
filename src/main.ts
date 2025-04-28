@@ -7,11 +7,11 @@ type Handler<User, EPs extends ApiDefinition, E extends keyof EPs> = (
   payload: EPs[E]["input"],
 ) => Promise<EPs[E]["output"]>;
 
-export type PortalApiImplementation<User, EPs extends ApiDefinition> = {
+export type TypedApiImplementation<User, EPs extends ApiDefinition> = {
   [E in keyof EPs]: Handler<User, EPs, E>;
 };
 
-export const portalClient =
+export const typedApiClient =
   <EPs extends ApiDefinition>(serverUrl: string) =>
   async <E extends keyof EPs>(
     endpoint: E,
@@ -29,12 +29,12 @@ export const portalClient =
     return await response.json();
   };
 
-export const PortalHandler = async <
+export const typedApiHandler = async <
   User,
   EPs extends ApiDefinition,
   Key extends keyof EPs,
 >(
-  endpoints: PortalApiImplementation<User, EPs>,
+  endpoints: TypedApiImplementation<User, EPs>,
   verifyToken: (token: string) => Promise<User>,
   { token, payload, endpoint }: {
     endpoint: Key;
