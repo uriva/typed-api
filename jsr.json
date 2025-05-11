@@ -1,7 +1,6 @@
 {
-    "name": "@uri/typed-api",
-    "version": "0.0.2",
-    "license": "MIT",
-    "exports": "./mod.ts"
-  }
-  
+  "name": "@uri/typed-api",
+  "version": "0.0.3",
+  "license": "MIT",
+  "exports": "./mod.ts"
+}

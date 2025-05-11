@@ -1,6 +1,10 @@
-type Endpoint<Input, Output> = { input: Input; output: Output };
+export type Endpoint<Input, Output, AuthRequired extends boolean = true> = {
+  input: Input;
+  output: Output;
+  authRequired?: AuthRequired;
+};
 
-type ApiDefinition = Record<string, Endpoint<unknown, unknown>>;
+type ApiDefinition = Record<string, Endpoint<unknown, unknown, boolean>>;
 
 type Handler<User, EPs extends ApiDefinition, E extends keyof EPs> = (
   user: User,
@@ -23,27 +27,57 @@ export const typedApiClient =
       body: JSON.stringify({ payload, endpoint, token }),
     });
     if (response.status !== 200) {
-      console.error(response.status);
       return Promise.reject(await response.text());
     }
     return await response.json();
   };
 
+type HandlerFor<User, Input, Output, AuthRequired extends boolean> =
+  AuthRequired extends true ? (user: User, payload: Input) => Promise<Output>
+    : (payload: Input) => Promise<Output>;
+
+export type ApiDefinitionObject<
+  User,
+  Def extends Record<
+    string,
+    { input: unknown; output: unknown; authRequired: boolean }
+  >,
+> = {
+  [K in keyof Def]: {
+    handler: HandlerFor<
+      User,
+      Def[K]["input"],
+      Def[K]["output"],
+      Def[K]["authRequired"]
+    >;
+    authRequired: Def[K]["authRequired"];
+  };
+};
+
 export const typedApiHandler = async <
   User,
-  EPs extends ApiDefinition,
-  Key extends keyof EPs,
+  Def extends Record<
+    string,
+    { input: unknown; output: unknown; authRequired: boolean }
+  >,
+  Key extends keyof Def,
 >(
-  endpoints: TypedApiImplementation<User, EPs>,
+  endpoints: ApiDefinitionObject<User, Def>,
   verifyToken: (token: string) => Promise<User>,
   { token, payload, endpoint }: {
     endpoint: Key;
     token: string;
-    payload: EPs[Key]["input"];
+    payload: Def[Key]["input"];
   },
-): Promise<EPs[Key]["output"]> => {
-  const activeUser = await verifyToken(token);
-  const ep = endpoints[endpoint];
-  if (!ep) throw new Error("No endpoint found");
-  return ep(activeUser, payload);
+): Promise<Def[Key]["output"]> => {
+  const endpointObj = endpoints[endpoint];
+  if (!endpointObj) throw new Error("No endpoint found");
+  if (endpointObj.authRequired) {
+    const user = await verifyToken(token);
+    // @ts-ignore: handler expects user for auth endpoints
+    return endpointObj.handler(user, payload);
+  } else {
+    // @ts-ignore: handler expects only payload for public endpoints
+    return endpointObj.handler(payload);
+  }
 };
