@@ -60,11 +60,9 @@ export const apiHandler = async <
   const endpointObj = handlers[endpoint];
   if (!endpointObj) throw new Error("No endpoint found");
   if (endpointObj.authRequired) {
-    const user = await authenticate(token);
-    // @ts-ignore: handler expects user for auth endpoints
-    return endpointObj.handler(user, payload);
+    return endpointObj.handler(await authenticate(token), payload);
   } else {
-    // @ts-ignore: handler expects only payload for public endpoints
+    // @ts-expect-error this is a bit of a hack to get around the fact that we don't know if the endpoint is auth required or not
     return endpointObj.handler(payload);
   }
 };
