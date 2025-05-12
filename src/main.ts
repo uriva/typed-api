@@ -1,13 +1,35 @@
-export type Endpoint<Input, Output, AuthRequired extends boolean = true> = {
+type EndpointDefinition<Input, Output, AuthRequired extends boolean> = {
   input: Input;
   output: Output;
-  authRequired?: AuthRequired;
+  authRequired: AuthRequired;
 };
 
-export type ApiImplementation = Record<string, Endpoint<unknown, unknown, boolean>>;
+type ApiDefinition = Record<
+  string,
+  EndpointDefinition<unknown, unknown, boolean>
+>;
 
-export const typedApiClient =
-  <EPs extends ApiImplementation>(serverUrl: string) =>
+type HandlerFor<User, Input, Output, AuthRequired extends boolean> =
+  AuthRequired extends false ? (payload: Input) => Promise<Output>
+    : (user: User, payload: Input) => Promise<Output>;
+
+export type ApiImplementation<User, Definition extends ApiDefinition> = {
+  authenticate: (token: string) => Promise<User>;
+  handlers: {
+    [K in keyof Definition]: {
+      handler: HandlerFor<
+        User,
+        Definition[K]["input"],
+        Definition[K]["output"],
+        Definition[K]["authRequired"]
+      >;
+      authRequired: Definition[K]["authRequired"];
+    };
+  };
+};
+
+export const apiClient =
+  <EPs extends ApiDefinition>(serverUrl: string) =>
   async <E extends keyof EPs>(
     endpoint: E,
     token: string,
@@ -23,48 +45,22 @@ export const typedApiClient =
     return await response.json();
   };
 
-type HandlerFor<User, Input, Output, AuthRequired extends boolean> =
-  AuthRequired extends true ? (user: User, payload: Input) => Promise<Output>
-    : (payload: Input) => Promise<Output>;
-
-export type ApiDefinition<
-  User,
-  Def extends Record<
-    string,
-    { input: unknown; output: unknown; authRequired: boolean }
-  >,
-> = {
-  [K in keyof Def]: {
-    handler: HandlerFor<
-      User,
-      Def[K]["input"],
-      Def[K]["output"],
-      Def[K]["authRequired"]
-    >;
-    authRequired: Def[K]["authRequired"];
-  };
-};
-
 export const apiHandler = async <
   User,
-  Def extends Record<
-    string,
-    { input: unknown; output: unknown; authRequired: boolean }
-  >,
+  Def extends ApiDefinition,
   Key extends keyof Def,
 >(
-  endpoints: ApiDefinition<User, Def>,
-  verifyToken: (token: string) => Promise<User>,
+  { handlers, authenticate }: ApiImplementation<User, Def>,
   { token, payload, endpoint }: {
     endpoint: Key;
     token: string;
     payload: Def[Key]["input"];
   },
 ): Promise<Def[Key]["output"]> => {
-  const endpointObj = endpoints[endpoint];
+  const endpointObj = handlers[endpoint];
   if (!endpointObj) throw new Error("No endpoint found");
   if (endpointObj.authRequired) {
-    const user = await verifyToken(token);
+    const user = await authenticate(token);
     // @ts-ignore: handler expects user for auth endpoints
     return endpointObj.handler(user, payload);
   } else {
