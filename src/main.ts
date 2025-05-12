@@ -4,7 +4,7 @@ export type Endpoint<Input, Output, AuthRequired extends boolean = true> = {
   authRequired?: AuthRequired;
 };
 
-type ApiImplementation = Record<string, Endpoint<unknown, unknown, boolean>>;
+export type ApiImplementation = Record<string, Endpoint<unknown, unknown, boolean>>;
 
 export const typedApiClient =
   <EPs extends ApiImplementation>(serverUrl: string) =>
