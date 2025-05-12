@@ -4,19 +4,10 @@ export type Endpoint<Input, Output, AuthRequired extends boolean = true> = {
   authRequired?: AuthRequired;
 };
 
-type ApiDefinition = Record<string, Endpoint<unknown, unknown, boolean>>;
-
-type Handler<User, EPs extends ApiDefinition, E extends keyof EPs> = (
-  user: User,
-  payload: EPs[E]["input"],
-) => Promise<EPs[E]["output"]>;
-
-export type TypedApiImplementation<User, EPs extends ApiDefinition> = {
-  [E in keyof EPs]: Handler<User, EPs, E>;
-};
+type ApiImplementation = Record<string, Endpoint<unknown, unknown, boolean>>;
 
 export const typedApiClient =
-  <EPs extends ApiDefinition>(serverUrl: string) =>
+  <EPs extends ApiImplementation>(serverUrl: string) =>
   async <E extends keyof EPs>(
     endpoint: E,
     token: string,
@@ -36,7 +27,7 @@ type HandlerFor<User, Input, Output, AuthRequired extends boolean> =
   AuthRequired extends true ? (user: User, payload: Input) => Promise<Output>
     : (payload: Input) => Promise<Output>;
 
-export type ApiDefinitionObject<
+export type ApiDefinition<
   User,
   Def extends Record<
     string,
@@ -54,7 +45,7 @@ export type ApiDefinitionObject<
   };
 };
 
-export const typedApiHandler = async <
+export const apiHandler = async <
   User,
   Def extends Record<
     string,
@@ -62,7 +53,7 @@ export const typedApiHandler = async <
   >,
   Key extends keyof Def,
 >(
-  endpoints: ApiDefinitionObject<User, Def>,
+  endpoints: ApiDefinition<User, Def>,
   verifyToken: (token: string) => Promise<User>,
   { token, payload, endpoint }: {
     endpoint: Key;

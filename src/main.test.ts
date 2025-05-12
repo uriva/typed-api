@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert";
-import { ApiDefinitionObject, typedApiHandler } from "./main.ts";
+import { ApiDefinition, apiHandler } from "./main.ts";
 
 type User = { id: string };
 
@@ -16,9 +16,7 @@ type MyApiDef = {
   };
 };
 
-type MyApi = ApiDefinitionObject<User, MyApiDef>;
-
-const endpoints: MyApi = {
+const endpoints: ApiDefinition<User, MyApiDef> = {
   authEndpoint: {
     handler: (user: User, payload: { msg: string }) => {
       if (!user) throw new Error("No user");
@@ -40,7 +38,7 @@ const verifyToken = (token: string): Promise<User> => {
 };
 
 Deno.test("authenticated endpoint with valid token", async () => {
-  const res = await typedApiHandler(
+  const res = await apiHandler(
     endpoints,
     verifyToken,
     { endpoint: "authEndpoint", token: "valid", payload: { msg: "hello" } },
@@ -51,7 +49,7 @@ Deno.test("authenticated endpoint with valid token", async () => {
 Deno.test("authenticated endpoint with invalid token rejects", async () => {
   await assertRejects(
     async () => {
-      await typedApiHandler(
+      await apiHandler(
         endpoints,
         verifyToken,
         { endpoint: "authEndpoint", token: "bad", payload: { msg: "fail" } },
@@ -63,7 +61,7 @@ Deno.test("authenticated endpoint with invalid token rejects", async () => {
 });
 
 Deno.test("unauthenticated endpoint (authRequired: false)", async () => {
-  const res = await typedApiHandler(
+  const res = await apiHandler(
     endpoints,
     verifyToken,
     { endpoint: "publicEndpoint", token: "", payload: { msg: "world" } },
