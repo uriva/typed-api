@@ -24,64 +24,68 @@ between client and server.
 ### 1. Define your API contract (this file is shared by client & server)
 
 ```ts
-// api.ts
-import type { ApiImplementation } from "@uri/typed-api";
+import { z, type ZodTypeAny } from "zod";
+import { endpoint } from "./src/main.ts";
 
-type MyApiDef = {
-  getUser: {
-    input: { id: string };
-    output: { id: string; name: string };
-    authRequired: false;
-  };
-  add: {
-    input: { a: number; b: number };
-    output: { sum: number };
-    authRequired: false;
-  };
+export const api = {
+  authEndpoint: endpoint({
+    input: z.object({ msg: z.string() }),
+    output: z.object({ reply: z.string() }),
+    authRequired: true,
+  }),
+  publicEndpoint: endpoint({
+    input: z.object({ msg: z.string() }),
+    output: z.object({ reply: z.string() }),
+    authRequired: false,
+  }),
 };
 ```
 
 ### 2. Implement the server logic
 
 ```ts
-// server.ts
-import type { ApiImplementation } from "@uri/typed-api";
-import type { MyApiDef } from "./api.ts";
+import { api } from "./api_contract.ts"; // or wherever you defined your contract
+import { type ApiImplementation } from "./src/main.ts";
 
-const implementation: ApiImplementation<unknown, MyApiDef> = {
-  authenticate: async () => Promise.resolve({}), // Not used since all endpoints are public
+type User = { id: string };
+
+const implementation: ApiImplementation<User, typeof api> = {
+  authenticate: async (token: string) => {
+    if (token === "valid") return { id: "user1" };
+    throw new Error("Invalid token");
+  },
   handlers: {
-    getUser: {
-      handler: async (payload) => {
-        return { id: payload.id, name: "Alice" };
-      },
-      authRequired: false,
+    authEndpoint: async (user, payload) => {
+      // user is guaranteed to be present
+      return { reply: `auth: ${user.id} - ${payload.msg}` };
     },
-    add: {
-      handler: async (payload) => {
-        return { sum: payload.a + payload.b };
-      },
-      authRequired: false,
+    publicEndpoint: async (payload) => {
+      return { reply: `public: ${payload.msg}` };
     },
   },
 };
-
-// To handle a request:
-import { apiHandler } from "@uri/typed-api";
-// Example usage (in a server route handler):
-// const result = await apiHandler(implementation, { endpoint, token, payload });
 ```
 
 ### 3. Use the client (with full type safety)
 
 ```ts
-// client.ts
-import { apiClient } from "@uri/typed-api";
-import type { MyApiDef } from "./api.ts";
+import { apiClient } from "./src/main.ts";
+import { api } from "./api_contract.ts"; // or wherever you defined your contract
 
-const client = apiClient<MyApiDef>("http://localhost:3000");
+// Example transport function (replace with your actual server communication logic)
+const transport = async (input: unknown): Promise<unknown> => {
+  // For demo: call a local handler, or use fetch for real server
+  // return await fetch("/api", { method: "POST", body: JSON.stringify(input) }).then(r => r.json());
+  throw new Error("Not implemented");
+};
 
-// Example usage:
-const user = await client("getUser", "", { id: "123" }); // { id: string, name: string }
-const sumResult = await client("add", "", { a: 2, b: 3 }); // { sum: number }
+const client = apiClient(transport, api);
+
+// Authenticated endpoint
+client({ endpoint: "authEndpoint", token: "valid", payload: { msg: "hello" } })
+  .then((res) => console.log(res.reply)); // Fully typed: { reply: string }
+
+// Public endpoint
+client({ endpoint: "publicEndpoint", payload: { msg: "world" } })
+  .then((res) => console.log(res.reply)); // Fully typed: { reply: string }
 ```
