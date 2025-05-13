@@ -28,7 +28,7 @@ export type ApiImplementation<User, Def extends ApiDefinition> = {
 };
 
 export const httpCommunication =
-  (serverUrl: string) => async <T, O>(params: T) => {
+  (serverUrl: string) => async <T, O>(params: T): Promise<O> => {
     const response = await fetch(serverUrl, {
       method: "POST",
       body: JSON.stringify(params),
@@ -47,7 +47,7 @@ export const apiClient = <EPs extends ApiDefinition>(
   params: EPs[E] extends { authRequired: true }
     ? { endpoint: E; token: string; payload: z.infer<EPs[E]["input"]> }
     : { endpoint: E; payload: z.infer<EPs[E]["input"]> },
-) =>
+): Promise<z.infer<EPs[E]["output"]>> =>
   communicateWithServer<
     typeof params,
     z.infer<EPs[E]["output"]>
