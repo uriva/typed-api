@@ -1,7 +1,7 @@
 {
   "name": "@uri/typed-api",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "license": "MIT",
   "exports": "./mod.ts",
-  "imports": { "zod": "npm:zod@3.22.4" }
+  "imports": { "zod": "npm:zod@3.24.4" }
 }
