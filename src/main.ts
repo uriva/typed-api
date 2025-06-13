@@ -1,4 +1,4 @@
-import type { z } from "zod";
+import type { z } from "zod/v4";
 
 export const endpoint = <TInput, TOutput, TAuth extends boolean>(def: {
   input: TInput;
@@ -11,9 +11,17 @@ export type ApiDefinition = Record<
   { input: z.ZodTypeAny; output: z.ZodTypeAny; authRequired: boolean }
 >;
 
+type AuthenticatedHandler<User, Input, Output> = (
+  user: User,
+  payload: Input,
+) => Promise<Output>;
+type UnauthenticatedHandler<Input, Output> = (
+  payload: Input,
+) => Promise<Output>;
+
 type HandlerFor<User, Input, Output, AuthRequired extends boolean> =
-  AuthRequired extends true ? (user: User, payload: Input) => Promise<Output>
-    : (payload: Input) => Promise<Output>;
+  AuthRequired extends true ? AuthenticatedHandler<User, Input, Output>
+    : UnauthenticatedHandler<Input, Output>;
 
 export type ApiImplementation<User, Def extends ApiDefinition> = {
   authenticate: (token: string) => Promise<User>;
@@ -77,19 +85,20 @@ export const apiHandler = async <
   if (!parsed.success) {
     throw new Error("Invalid input: " + parsed.error.message);
   }
-  const data = (parsed as { success: true; data: unknown }).data;
+  const data =
+    (parsed as { success: true; data: z.infer<Def[Key]["input"]> }).data;
   if (endpointDef.authRequired) {
     if (!("token" in req)) throw new Error("Token required");
     const user = await impl.authenticate(req.token);
-    // Auth endpoint: handler expects (user, payload)
-    return (impl.handlers[req.endpoint] as (
-      user: User,
-      payload: typeof data,
-    ) => Promise<unknown>)(user, data);
+    return (impl.handlers[req.endpoint] as AuthenticatedHandler<
+      User,
+      z.infer<Def[Key]["input"]>,
+      z.infer<Def[Key]["output"]>
+    >)(user, data);
   } else {
-    // Public endpoint: handler expects (payload)
-    return (impl.handlers[req.endpoint] as (
-      payload: typeof data,
-    ) => Promise<unknown>)(data);
+    return (impl.handlers[req.endpoint] as UnauthenticatedHandler<
+      z.infer<Def[Key]["input"]>,
+      z.infer<Def[Key]["output"]>
+    >)(data);
   }
 };

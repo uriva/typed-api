@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert";
-import { z } from "zod";
+import { z } from "zod/v4";
 import {
   apiClient,
   apiHandler,
