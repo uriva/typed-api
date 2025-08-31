@@ -41,10 +41,11 @@ export const httpCommunication =
       method: "POST",
       body: JSON.stringify(params),
     });
-    if (response.status !== 200) {
-      return Promise.reject(await response.text());
-    }
-    return response.json() as Promise<O>;
+    return response.status === 200
+      ? response.json() as Promise<O>
+      : Promise.reject(
+        new Error(`HTTP ${response.status}: ${await response.text()}`),
+      );
   };
 
 export const apiClient = <EPs extends ApiDefinition>(
